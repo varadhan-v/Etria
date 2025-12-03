@@ -1,0 +1,3185 @@
+We are using Azure DevOps Git for source code management in our environment. However, we only have pull request access, not push access. This means we cannot directly push code changes to the repository.
+
+To access the source code, we go to the Azure DevOps organization, select the appropriate project, and then navigate to the repository. Currently, we are using two mirrors: G2.5mirror and G3mirror. We select the G3mirror, go to the "Repos" section, and then select a specific tag version. The code in the repository is managed using these tag versions.
+
+When we want to work on a particular version, we select the tag, clone the repository, and pull the source code to our local environment. Our environment is already set up on the machine, and we maintain several versions using these tags.
+
+After completing our work or patching, we generate a patch file. Since we don't have push access, we send the patch file to the customer via SharePoint. The customer is responsible for pushing the changes to the Git repository.
+
+This is the current setup and process we follow in our environment.
+
+
+
+git clone https://${AZURE_CRED_USR}:${AZURE_CRED_PSW}@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
+
+git clone https://${AZURE_CRED_USR}:${AZURE_CRED_PSW}@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev Cinnamon-dev
+
+
+https://dev.azure.com/fvpt/HCL/_git/Cinnamon-dev
+
+
+			echo "📦 Updating package.json homepage field..."
+                    if grep -q '"homepage":' package.json; then
+                        sed -i 's#"homepage":.*#"homepage": "./'${SERIAL}'",#' package.json
+                    else
+                        sed -i '/"name":/a \ \ "homepage": "./'${SERIAL}'",' package.json
+                    fi
+
+			echo "📦 Updating package.json homepage field..."
+			if grep -q '"homepage":' package.json; then
+  			  sed -i 's#"homepage":.*#"homepage": "./'${SERIAL}'",#' package.json
+			else
+    			sed -i '/"name":/a \\ \\ "homepage": "./'${SERIAL}'",' package.json
+			fi
+
+
+sudo apt remove libcurl4
+sudo apt install curl
+root@administrator:/var/lib/jenkins/workspace# node -v
+v18.20.8
+root@administrator:/var/lib/jenkins/workspace# npm -v
+10.8.2
+root@administrator:/var/lib/jenkins/workspace# 
+
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs
+
+----------------------------------------->1
+
+pipeline {
+    agent any
+
+    environment {
+        AZURE_CRED = credentials('azure-pat-varadhan')
+    }
+
+    stages {
+        stage('Clone Cinnamon-dev') {
+            steps {
+                sh '''
+                rm -rf Cinnamon-dev
+
+                ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev
+                '''
+            }
+        }
+
+        stage('Clean old subdirectories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''
+                    rm -rf Cinnamon-dev-webapi-common
+                    rm -rf Cinnamon-dev-webapi-mfp
+                    rm -rf Cinnamon-dev-webapi-payment
+                    rm -rf Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Clone Sub Repositories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''
+                    ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-mfp
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-payment Cinnamon-dev-webapi-payment
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Modify and Build WebApp') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''
+                    SERIAL=$(date +%s)  # dynamic serial number using timestamp
+
+                    echo "📦 Updating package.json homepage field..."
+                    if grep -q '"homepage":' package.json; then
+                        sed -i 's#"homepage":.*#"homepage": "./'${SERIAL}'",#' package.json
+                    else
+                        sed -i '/"name":/a \\ \\ "homepage": "./'${SERIAL}'",' package.json
+                    fi
+
+                    echo "✏️ Inserting React Route into mfp-app.tsx at line 344..."
+                    ROUTE_LINE='        <Route path="/index.html" element={<TopMenuPage />} />'
+                    sed -i "344a ${ROUTE_LINE}" src/mfp-app.tsx
+
+                    echo "🔧 Running npm install and build..."
+                    npm install
+                    npm run build-mfp
+                    '''
+                }
+            }
+        }
+    }
+
+}
+---------------------------------------------------------->2
+
+pipeline {
+    agent any
+
+    environment {
+        AZURE_CRED = credentials('azure-pat-varadhan')
+    }
+
+    stages {
+        stage('Clone Cinnamon-dev') {
+            steps {
+                sh '''
+                rm -rf Cinnamon-dev
+
+                ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev
+                '''
+            }
+        }
+
+        stage('Clean old subdirectories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''
+                    rm -rf Cinnamon-dev-webapi-common
+                    rm -rf Cinnamon-dev-webapi-mfp
+                    rm -rf Cinnamon-dev-webapi-payment
+                    rm -rf Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Clone Sub Repositories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''
+                    ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-mfp
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-payment Cinnamon-dev-webapi-payment
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Modify package.json homepage') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''
+                    echo "📦 Determining next homepage folder number..."
+
+                    HOMEPATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp"
+                    LAST_DIR=$(ls -1 "$HOMEPATH" | grep -E '^[0-9]{3}$' | sort | tail -n 1)
+
+                    if [ -z "$LAST_DIR" ]; then
+                        NEXT="001"
+                    else
+                        NUM=$((10#$LAST_DIR + 1))  # Avoid octal
+                        NEXT=$(printf "%03d" "$NUM")
+                    fi
+
+                    echo "📂 Creating folder $NEXT"
+                    mkdir -p "$HOMEPATH/$NEXT"
+
+                    echo "✏️ Inserting homepage at line 8 in package.json"
+                    sed -i "8i\\  \\\"homepage\\\": \\\"$HOMEPATH/$NEXT\\\"," package.json
+                    '''
+                }
+            }
+        }
+
+        stage('Insert React Route and Build') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''
+                    echo "✏️ Inserting route line at line 344"
+                    ROUTE_LINE='        <Route path="/index.html" element={<TopMenuPage />} />'
+                    sed -i "344a ${ROUTE_LINE}" src/mfp-app.tsx
+
+                    echo "🔧 Running npm install and build-mfp"
+                    npm install
+                    npm run build-mfp
+                    '''
+                }
+            }
+        }
+    }
+
+}
+--------------------------------------------------->3
+
+pipeline {
+    agent any
+
+    environment {
+        AZURE_CRED = credentials('azure-pat-varadhan')
+    }
+
+    stages {
+        stage('Clone Cinnamon-dev') {
+            steps {
+                sh '''
+                rm -rf Cinnamon-dev
+                ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev
+                '''
+            }
+        }
+
+        stage('Clean old subdirectories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''
+                    rm -rf Cinnamon-dev-webapi-common
+                    rm -rf Cinnamon-dev-webapi-mfp
+                    rm -rf Cinnamon-dev-webapi-payment
+                    rm -rf Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Clone Sub Repositories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''
+                    ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-mfp
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-payment Cinnamon-dev-webapi-payment
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Modify package.json homepage with serial') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''
+                    echo "📦 Determining next serial..."
+
+                    HOMEPATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp"
+
+                    # Get highest existing serial number
+                    LAST=$(ls "$HOMEPATH" | grep -E '^[0-9]{3}$' | sort | tail -n 1)
+
+                    if [ -z "$LAST" ]; then
+                        NEXT="001"
+                    else
+                        NUM=$((10#$LAST + 1))
+                        NEXT=$(printf "%03d" "$NUM")
+                    fi
+
+                    echo "📂 Creating folder $NEXT"
+                    mkdir -p "$HOMEPATH/$NEXT"
+
+                    echo "✏️ Inserting homepage at line 8"
+                    sed -i "8i\\  \\\"homepage\\\": \\\"$HOMEPATH/$NEXT\\\"," package.json
+                    '''
+                }
+            }
+        }
+
+        stage('Insert Route and Build') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''
+                    echo "✏️ Inserting <Route> into mfp-app.tsx"
+                    ROUTE_LINE='        <Route path="/index.html" element={<TopMenuPage />} />'
+                    sed -i "344a ${ROUTE_LINE}" src/mfp-app.tsx
+
+                    echo "🔧 Running npm install and build-mfp"
+                    npm install
+                    npm run build-mfp
+                    '''
+                }
+            }
+        }
+    }
+}
+------------------------------------------------------------->
+
+apt-cache policy groff
+sudo nano /etc/apt/sources.list
+deb http://archive.ubuntu.com/ubuntu jammy main universe
+deb http://archive.ubuntu.com/ubuntu jammy-updates main universe
+
+sudo apt update
+sudo apt install groff
+sudo apt install awscli
+
+------------------------------------------------------------->4 OK case->>>>>>>>>
+
+pipeline {
+    agent any
+
+    environment {
+        AZURE_CRED = credentials('azure-pat-varadhan') // Jenkins secret with Azure DevOps PAT
+    }
+
+    stages {
+
+        stage('Clone Cinnamon-dev') {
+            steps {
+                sh '''#!/bin/bash
+                rm -rf Cinnamon-dev
+
+                ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev
+                '''
+            }
+        }
+
+        stage('Clean old subdirectories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    rm -rf Cinnamon-dev-webapi-common
+                    rm -rf Cinnamon-dev-webapi-mfp
+                    rm -rf Cinnamon-dev-webapi-payment
+                    rm -rf Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Clone Sub Repositories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-mfp
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-payment Cinnamon-dev-webapi-payment
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Insert homepage with serial') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "🔢 Checking and incrementing serial..."
+
+                    SERIAL_FILE="/var/lib/jenkins/workspace/Cinnamon-dev/.serial"
+
+                    if [ -f "$SERIAL_FILE" ]; then
+                        LAST=$(cat "$SERIAL_FILE" | tr -dc '0-9')
+                        NEXT=$((10#$LAST + 1))
+                    else
+                        NEXT=1
+                    fi
+
+                    SERIAL=$(printf "%03d" "$NEXT")
+                    echo "$SERIAL" > "$SERIAL_FILE"
+
+                    TARGET_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    mkdir -p "$TARGET_PATH"
+
+                    echo "📦 Inserting homepage path: $TARGET_PATH"
+                    sed -i "8i\\  \\\"homepage\\\": \\\"$TARGET_PATH\\\"," package.json
+                    '''
+                }
+            }
+        }
+
+        stage('Insert Route and Build') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "✏️ Inserting <Route> in mfp-app.tsx..."
+                    ROUTE_LINE='        <Route path="/index.html" element={<TopMenuPage />} />'
+                    sed -i "344a ${ROUTE_LINE}" src/mfp-app.tsx
+
+                    echo "🔧 Running npm install and build..."
+                    npm install
+                    npm run build-mfp
+                    '''
+                }
+            }
+        }
+    }
+}
+----------------------------------------------------------------->
+pipeline {
+    agent any
+
+    environment {
+        AZURE_CRED = credentials('azure-pat-varadhan') // Azure DevOps PAT ID from Jenkins
+    }
+
+    stages {
+
+        stage('Clone Cinnamon-dev') {
+            steps {
+                sh '''#!/bin/bash
+                rm -rf Cinnamon-dev
+
+                ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev
+                '''
+            }
+        }
+
+        stage('Clean old subdirectories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    rm -rf Cinnamon-dev-webapi-common
+                    rm -rf Cinnamon-dev-webapi-mfp
+                    rm -rf Cinnamon-dev-webapi-payment
+                    rm -rf Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Clone Sub Repositories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-mfp
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-payment Cinnamon-dev-webapi-payment
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Insert homepage with serial') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "🔢 Generating serial..."
+
+                    SERIAL_FILE="/var/lib/jenkins/workspace/Cinnamon-dev/.serial"
+                    if [ -f "$SERIAL_FILE" ]; then
+                        LAST=$(cat "$SERIAL_FILE" | tr -dc '0-9')
+                        NEXT=$((10#$LAST + 1))
+                    else
+                        NEXT=1
+                    fi
+                    SERIAL=$(printf "%03d" "$NEXT")
+                    echo "$SERIAL" > "$SERIAL_FILE"
+
+                    TARGET_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    mkdir -p "$TARGET_PATH"
+
+                    echo "📦 Updating homepage to $TARGET_PATH"
+                    sed -i "8i\\  \\\"homepage\\\": \\\"$TARGET_PATH\\\"," package.json
+                    '''
+                }
+            }
+        }
+
+        stage('Insert Route and Build') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh """#!/bin/bash
+                    echo "✏️ Inserting <Route> in mfp-app.tsx..."
+                    sed -i '344a \\       <Route path="/index.html" element={<TopMenuPage />} />' src/mfp-app.tsx
+
+                    echo "🔧 Installing & Building..."
+                    npm install
+                    npm run build-mfp
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to AWS S3') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial)
+                    DEST="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+
+                    echo "📁 Copying build to $DEST"
+                    mkdir -p "$DEST"
+                    cp -r build/index.html "$DEST/"
+                    cp -r build/lib "$DEST/"
+                    cp -r build/locales "$DEST/"
+                    cp -r build/static "$DEST/"
+
+                    echo "☁️ Uploading to S3..."
+                    aws s3 cp "$DEST" "s3://rsi-caas-mfp-dev-public/test/hcl/$SERIAL/" --recursive --region ap-northeast-1 --profile mfp-dev
+                    '''
+                }
+            }
+        }
+    }
+}
+------------------------------------------------------->
+
+pipeline {
+    agent any
+
+    environment {
+        AZURE_CRED = credentials('azure-pat-varadhan')
+    }
+
+    stages {
+
+        stage('Clone Cinnamon-dev') {
+            steps {
+                sh '''#!/bin/bash
+                rm -rf Cinnamon-dev
+
+                ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev
+                '''
+            }
+        }
+
+        stage('Clean old subdirectories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    rm -rf Cinnamon-dev-webapi-common
+                    rm -rf Cinnamon-dev-webapi-mfp
+                    rm -rf Cinnamon-dev-webapi-payment
+                    rm -rf Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Clone Sub Repositories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-mfp
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-payment Cinnamon-dev-webapi-payment
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Insert homepage with serial') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "🔢 Checking and incrementing serial..."
+
+                    SERIAL_FILE="/var/lib/jenkins/workspace/Cinnamon-dev/.serial"
+
+                    if [ -f "$SERIAL_FILE" ]; then
+                        LAST=$(cat "$SERIAL_FILE" | tr -dc '0-9')
+                        NEXT=$((10#$LAST + 1))
+                    else
+                        NEXT=1
+                    fi
+
+                    SERIAL=$(printf "%03d" "$NEXT")
+                    echo "$SERIAL" > "$SERIAL_FILE"
+
+                    TARGET_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    mkdir -p "$TARGET_PATH"
+
+                    echo "📦 Inserting homepage path: $TARGET_PATH"
+                    sed -i "8i\\  \\\"homepage\\\": \\\"$TARGET_PATH\\\"," package.json
+                    '''
+                }
+            }
+        }
+
+        stage('Insert Route and Build') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "✏️ Inserting <Route> in mfp-app.tsx..."
+                    ROUTE_LINE='        <Route path="/index.html" element={<TopMenuPage />} />'
+                    sed -i "344a ${ROUTE_LINE}" src/mfp-app.tsx
+
+                    echo "🔧 Running npm install and build..."
+                    npm install
+                    npm run build-mfp
+                    '''
+                }
+            }
+        }
+                        stage('Backup build to serial folder') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "🗄️ Backing up build to serial folder..."
+
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | tr -dc '0-9')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    TARGET="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+
+                    if [ ! -d "build" ] || [ -z "$(ls -A build)" ]; then
+                        echo "❌ ERROR: build folder is empty or missing!"
+                        exit 1
+                    fi
+
+                    mkdir -p "$SERIAL"
+                    cp -r build/* "$TARGET"
+
+                    echo "✅ Build backup copied to: $TARGET"
+                    '''
+                }
+            }
+        }
+
+}
+}
+---------------------------------------------->
+
+pipeline {
+    agent any
+
+    environment {
+        AZURE_CRED = credentials('azure-pat-varadhan')
+    }
+
+    stages {
+
+        stage('Clone Cinnamon-dev') {
+            steps {
+                sh '''#!/bin/bash
+                rm -rf Cinnamon-dev
+
+                ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev
+                '''
+            }
+        }
+
+        stage('Clean old subdirectories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    rm -rf Cinnamon-dev-webapi-common
+                    rm -rf Cinnamon-dev-webapi-mfp
+                    rm -rf Cinnamon-dev-webapi-payment
+                    rm -rf Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Clone Sub Repositories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-mfp
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-payment Cinnamon-dev-webapi-payment
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Insert homepage with serial') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "🔢 Checking and incrementing serial..."
+
+                    SERIAL_FILE="/var/lib/jenkins/workspace/Cinnamon-dev/.serial"
+
+                    if [ -f "$SERIAL_FILE" ]; then
+                        LAST=$(cat "$SERIAL_FILE" | tr -dc '0-9')
+                        NEXT=$((10#$LAST + 1))
+                    else
+                        NEXT=1
+                    fi
+
+                    SERIAL=$(printf "%03d" "$NEXT")
+                    echo "$SERIAL" > "$SERIAL_FILE"
+
+                    TARGET_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    mkdir -p "$TARGET_PATH"
+
+                    echo "📦 Inserting homepage path: $TARGET_PATH"
+                    sed -i "8i\\  \\\"homepage\\\": \\\"$TARGET_PATH\\\"," package.json
+                    '''
+                }
+            }
+        }
+
+        stage('Insert Route and Build') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "✏️ Inserting <Route> in mfp-app.tsx..."
+                    ROUTE_LINE='        <Route path="/index.html" element={<TopMenuPage />} />'
+                    sed -i "344a ${ROUTE_LINE}" src/mfp-app.tsx
+
+                    echo "🔧 Running npm install and build..."
+                    npm install
+                    npm run build-mfp
+                    '''
+                }
+            }
+        }
+                    stage('Backup build to serial folder') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "🗄️ Backing up build to serial folder..."
+
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | tr -dc '0-9')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    TARGET="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+
+                    echo "⏳ Waiting for 10 seconds before copying..."
+                    sleep 10
+
+                    echo "📁 Build folder content:"
+                    ls -l "$(pwd)/build"
+
+                    echo "📁 Creating target folder: $TARGET"
+                    mkdir -p "$TARGET"
+
+                    echo "📥 Copying files to: $TARGET"
+                    cp -rv "$(pwd)/build/"* "$TARGET"
+
+                    echo "📂 Copied files:"
+                    ls -l "$TARGET"
+                    '''
+                }
+            }
+        }
+                stage('Upload to AWS S3') {
+            environment {
+                AWS_ACCESS_KEY_ID = credentials('aws-access-key')
+                AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
+                AWS_DEFAULT_REGION = 'ap-northeast-1'
+            }
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "☁️ Uploading build to S3..."
+
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | tr -dc '0-9')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    SRC_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    S3_PATH="s3://rsi-caas-mfp-dev-public/test/hcl/$SERIAL"
+
+                    if [ -d "$SRC_PATH" ]; then
+                        echo "📂 Source Path: $SRC_PATH"
+                        echo "📤 Destination S3: $S3_PATH"
+                        aws s3 cp "$SRC_PATH" "$S3_PATH" --recursive
+                        echo "✅ Upload completed to: $S3_PATH"
+                    else
+                        echo "❌ ERROR: Source folder $SRC_PATH does not exist!"
+                        exit 1
+                    fi
+                    '''
+                }
+            }
+        }
+
+}
+}
+
+
+
+https://eu-north-1.console.aws.amazon.com/s3/buckets/varadhan1?region=eu-north-1&bucketType=general
+
+
+jenkins-uploader
+336qF0n)
+
+https://eu-north-1.console.aws.amazon.com/s3/buckets/rsi-caas-mfp-dev-pub?region=eu-north-1&bucketType=general&prefix=test/hcl/&showversions=false
+
+
+
+pipeline {
+    agent any
+
+    environment {
+        AZURE_CRED = credentials('azure-pat-varadhan')
+    }
+
+    stages {
+
+        stage('Clone Cinnamon-dev') {
+            steps {
+                sh '''#!/bin/bash
+                rm -rf Cinnamon-dev
+
+                ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev
+                '''
+            }
+        }
+
+        stage('Clean old subdirectories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    rm -rf Cinnamon-dev-webapi-common
+                    rm -rf Cinnamon-dev-webapi-mfp
+                    rm -rf Cinnamon-dev-webapi-payment
+                    rm -rf Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Clone Sub Repositories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-mfp
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-payment Cinnamon-dev-webapi-payment
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Insert homepage with serial') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "🔢 Checking and incrementing serial..."
+
+                    SERIAL_FILE="/var/lib/jenkins/workspace/Cinnamon-dev/.serial"
+
+                    if [ -f "$SERIAL_FILE" ]; then
+                        LAST=$(cat "$SERIAL_FILE" | tr -dc '0-9')
+                        NEXT=$((10#$LAST + 1))
+                    else
+                        NEXT=1
+                    fi
+
+                    SERIAL=$(printf "%03d" "$NEXT")
+                    echo "$SERIAL" > "$SERIAL_FILE"
+
+                    TARGET_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    mkdir -p "$TARGET_PATH"
+
+                    echo "📦 Inserting homepage path: $TARGET_PATH"
+                    sed -i "8i\\  \\\"homepage\\\": \\\"$TARGET_PATH\\\"," package.json
+                    '''
+                }
+            }
+        }
+
+        stage('Insert Route and Build') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "✏️ Inserting <Route> in mfp-app.tsx..."
+                    ROUTE_LINE='        <Route path="/index.html" element={<TopMenuPage />} />'
+                    sed -i "344a ${ROUTE_LINE}" src/mfp-app.tsx
+
+                    echo "🔧 Running npm install and build..."
+                    npm install
+                    npm run build-mfp
+                    '''
+                }
+            }
+        }
+                   stage('Backup build to serial folder') {
+    steps {
+        dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+            sh '''#!/bin/bash
+            echo "🗄️ Backing up build to serial folder..."
+
+            SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | tr -dc '0-9')
+            SERIAL=$(printf "%03d" "$SERIAL")
+            TARGET="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+
+            echo "⏳ Waiting for 5 seconds..."
+            sleep 5
+
+            echo "📁 Build folder content:"
+            ls -l "$(pwd)/build"
+
+            echo "📁 Creating target folder: $TARGET"
+            mkdir -p "$TARGET"
+
+            echo "📥 Copying files to: $TARGET"
+            cp -r build/index.html build/lib build/locales build/static "$TARGET"
+
+            echo "📂 Copied files:"
+            ls -l "$TARGET"
+            '''
+        }
+    }
+}
+
+stage('Upload to AWS S3') {
+    environment {
+        AWS_ACCESS_KEY_ID     = credentials('aws-access-key')         // Create this in Jenkins credentials
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')         // Create this in Jenkins credentials
+        AWS_DEFAULT_REGION    = 'ap-northeast-1'
+    }
+    steps {
+        dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+            sh '''#!/bin/bash
+            echo "☁️ Uploading build to S3..."
+
+            SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | tr -dc '0-9')
+            SERIAL=$(printf "%03d" "$SERIAL")
+            SRC_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+            S3_PATH="s3://rsi-caas-mfp-dev-pub/test/hcl/$SERIAL"
+
+            echo "📁 Uploading content of: $SRC_PATH"
+            ls -l "$SRC_PATH"
+
+            if [ -d "$SRC_PATH" ]; then
+                aws s3 cp "$SRC_PATH" "$S3_PATH" --recursive
+                echo "✅ Upload completed to: $S3_PATH"
+
+                echo "🔍 Verifying upload..."
+                aws s3 ls "$S3_PATH/"
+            else
+                echo "❌ ERROR: Source folder $SRC_PATH does not exist!"
+                exit 1
+            fi
+            '''
+        }
+    }
+}
+}
+}
+
+---------------------------------------------------------------working script file
+
+pipeline {
+    agent any
+
+    environment {
+        AZURE_CRED = credentials('azure-pat-varadhan')
+    }
+
+    stages {
+        stage('Clone Cinnamon-dev') {
+            steps {
+                sh '''#!/bin/bash
+                rm -rf Cinnamon-dev
+                ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev
+                '''
+            }
+        }
+
+        stage('Clean old subdirectories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    rm -rf Cinnamon-dev-webapi-common
+                    rm -rf Cinnamon-dev-webapi-mfp
+                    rm -rf Cinnamon-dev-webapi-payment
+                    rm -rf Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Clone Sub Repositories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-mfp
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-payment Cinnamon-dev-webapi-payment
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Insert homepage with serial') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "🔢 Checking and incrementing serial..."
+
+                    SERIAL_FILE="/var/lib/jenkins/workspace/Cinnamon-dev/.serial"
+
+                    if [ -f "$SERIAL_FILE" ]; then
+                        LAST=$(cat "$SERIAL_FILE" | tr -dc '0-9')
+                        NEXT=$((10#$LAST + 1))
+                    else
+                        NEXT=1
+                    fi
+
+                    SERIAL=$(printf "%03d" "$NEXT")
+                    echo "$SERIAL" > "$SERIAL_FILE"
+
+                    TARGET_PATH="/test/hcl/cinnamon/Automated-test/$SERIAL"
+                    mkdir -p "$TARGET_PATH"
+
+                    echo "📦 Inserting homepage path: $TARGET_PATH"
+                    sed -i "8i\\  \\\"homepage\\\": \\\"$TARGET_PATH\\\"," package.json
+                    '''
+                }
+            }
+        }
+
+        stage('Insert Route and Build') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "✏️ Inserting <Route> in mfp-app.tsx..."
+                    ROUTE_LINE='        <Route path="/index.html" element={<TopMenuPage />} />'
+                    sed -i "344a ${ROUTE_LINE}" src/mfp-app.tsx
+
+                    echo "🔧 Running npm install and build..."
+                    npm install --save-dev typescript
+                    npm run build-mfp
+                    '''
+                }
+            }
+        }
+
+        stage('Backup build to serial folder') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "🗄️ Backing up build to serial folder..."
+
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | tr -dc '0-9')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    TARGET="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+
+                    echo "📁 Creating target folder: $TARGET"
+                    mkdir -p "$TARGET"
+
+                    echo "📥 Copying files to: $TARGET"
+                    cp -r build/index.html build/lib build/locales build/static "$TARGET"
+                    '''
+                }
+            }
+        }
+
+        stage('Upload to AWS S3') {
+            environment {
+                AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
+                AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
+                AWS_DEFAULT_REGION    = 'eu-north-1'
+            }
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    set -e
+                    echo "☁️ Uploading build to S3..."
+
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | grep -o '[0-9]\\+')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    SRC_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    S3_PATH="s3://rsi-caas-mfp-dev-pub/test/hcl/$SERIAL"
+
+                    echo "📁 Uploading content of: $SRC_PATH"
+                    ls -l "$SRC_PATH"
+
+                    aws s3 cp "$SRC_PATH" "$S3_PATH" --recursive
+                    echo "✅ Upload completed to: $S3_PATH"
+                    '''
+                }
+            }
+        }
+    }
+}
+------------------------------------------------------->work script file
+
+w9hzrjgo9YB5Z4Gxn2U1Z/m32f39Qd7EqWA/vuiN
+
+AKIATN5RWID52LLMKYEC
+
+sqa_6f0c1985760b796f2ddf523c7faff38db4cf15e8  --- sonarqube key 
+
+----------------------------------------------------------->
+
+pipeline {
+    agent any
+
+    environment {
+        AZURE_CRED            = credentials('azure-pat-varadhan')
+        AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
+        AWS_DEFAULT_REGION    = 'eu-north-1'
+        SONARQUBE_ENV         = 'SonarQubeServer'  // Name configured in Jenkins > Manage Jenkins > Configure System
+    }
+
+    options {
+        timestamps()
+    }
+
+    stages {
+
+        stage('Clone Cinnamon-dev') {
+            steps {
+                sh '''#!/bin/bash
+                rm -rf Cinnamon-dev
+                ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev
+                '''
+            }
+        }
+
+        stage('Clean old subdirectories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    rm -rf Cinnamon-dev-webapi-common Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-payment Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Clone Sub Repositories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-mfp
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-payment Cinnamon-dev-webapi-payment
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Insert homepage with serial') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    SERIAL_FILE="/var/lib/jenkins/workspace/Cinnamon-dev/.serial"
+                    [ -f "$SERIAL_FILE" ] && LAST=$(cat "$SERIAL_FILE" | tr -dc '0-9') || LAST=0
+                    NEXT=$((10#$LAST + 1))
+                    SERIAL=$(printf "%03d" "$NEXT")
+                    echo "$SERIAL" > "$SERIAL_FILE"
+                    TARGET_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    mkdir -p "$TARGET_PATH"
+                    sed -i "8i\\  \\\"homepage\\\": \\\"$TARGET_PATH\\\"," package.json
+                    '''
+                }
+            }
+        }
+
+        stage('Insert Route and Build') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    sed -i "344a         <Route path=\\"/index.html\\" element={<TopMenuPage />} />" src/mfp-app.tsx
+                    npm install
+                    npm run build-mfp
+                    '''
+                }
+            }
+        }
+
+        stage('Backup build to serial folder') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | tr -dc '0-9')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    TARGET="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    mkdir -p "$TARGET"
+                    cp -r build/index.html build/lib build/locales build/static "$TARGET"
+                    '''
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            environment {
+                scannerHome = tool 'SonarScanner'
+            }
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    withSonarQubeEnv('SonarQubeServer') {
+                        sh '''#!/bin/bash
+                        $scannerHome/bin/sonar-scanner \
+                            -Dsonar.projectKey=cinnamon-webapp \
+                            -Dsonar.sources=. \
+                            -Dsonar.host.url=$SONAR_HOST_URL \
+                            -Dsonar.login=$SONAR_AUTH_TOKEN
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Upload to AWS S3') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    set -e
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | tr -dc '0-9')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    SRC_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    S3_PATH="s3://rsi-caas-mfp-dev-pub/test/hcl/$SERIAL"
+                    aws s3 cp "$SRC_PATH" "$S3_PATH" --recursive
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        failure {
+            mail to: 'varadhan887@gmail.com.com',
+                 subject: "🔴 Jenkins Pipeline Failed: ${env.JOB_NAME} [#${env.BUILD_NUMBER}]",
+                 body: "Pipeline failed at stage: ${env.STAGE_NAME}\n\nCheck Jenkins logs: ${env.BUILD_URL}"
+        }
+    }
+}
+
+
+pipeline {
+    agent any
+
+    environment {
+        // SonarQube server name as configured in Jenkins -> Manage Jenkins -> System
+        SONARQUBE_ENV = 'SonarQube'
+        // Project key in SonarQube (set when creating project in SonarQube UI)
+        SONAR_PROJECT_KEY = 'my-java-project'
+        // Project name in SonarQube
+        SONAR_PROJECT_NAME = 'My Java Project'
+        // Project version
+        SONAR_PROJECT_VERSION = '1.0'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main',
+                    url: 'https://your.git.repo/project.git'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh 'mvn clean install'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv("${SONARQUBE_ENV}") {
+                    sh """
+                        mvn sonar:sonar \
+                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                        -Dsonar.projectName='${SONAR_PROJECT_NAME}' \
+                        -Dsonar.projectVersion=${SONAR_PROJECT_VERSION} \
+                        -Dsonar.host.url=http://10.161.104.113:9000 \
+                        -Dsonar.login=${SONAR_AUTH_TOKEN}
+                    """
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 2, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+    }
+}
+
+
+squ_11c114157932d0642ecfe7c9807895bc1f23cf23
+
+
+ stage('SonarQube Analysis') {
+    steps {
+        withCredentials([string(credentialsId: 'sonar-auth-token', variable: 'SONAR_AUTH_TOKEN')]) {
+            withSonarQubeEnv('SonarQube') { // This name must match the SonarQube server name in Jenkins config
+                sh """
+                    mvn sonar:sonar \
+                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                        -Dsonar.projectName='${SONAR_PROJECT_NAME}' \
+                        -Dsonar.projectVersion=${SONAR_PROJECT_VERSION} \
+                        -Dsonar.host.url=http://10.161.104.113:9000 \
+                        -Dsonar.login=${SONAR_AUTH_TOKEN}
+                """
+            }
+        }
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+pipeline {
+    agent any
+
+    environment {
+        // Azure credentials for repo cloning
+        AZURE_CRED = credentials('azure-pat-varadhan')
+
+        // AWS credentials for S3 upload
+        AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
+        AWS_DEFAULT_REGION    = 'eu-north-1'
+
+        // SonarQube config
+        SONARQUBE_ENV = 'SonarQube'
+        SONAR_PROJECT_KEY = 'my-java-project'
+        SONAR_PROJECT_NAME = 'My Java Project'
+        SONAR_PROJECT_VERSION = '1.0'
+        SONAR_AUTH_TOKEN = credentials('sonar-auth-token')
+    }
+
+    stages {
+        /* -----------------------------------------------------------
+         * 1. Clone Cinnamon-dev Main Repo
+         * ----------------------------------------------------------- */
+        stage('Clone Cinnamon-dev') {
+            steps {
+                sh '''#!/bin/bash
+                rm -rf Cinnamon-dev
+                ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev
+                '''
+            }
+        }
+
+        /* -----------------------------------------------------------
+         * 2. Remove Old Subdirectories
+         * ----------------------------------------------------------- */
+        stage('Clean old subdirectories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    rm -rf Cinnamon-dev-webapi-common
+                    rm -rf Cinnamon-dev-webapi-mfp
+                    rm -rf Cinnamon-dev-webapi-payment
+                    rm -rf Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        /* -----------------------------------------------------------
+         * 3. Clone Sub Repositories
+         * ----------------------------------------------------------- */
+        stage('Clone Sub Repositories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-mfp
+                    git clone https://$AZURE_CRED:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-payment Cinnamon-dev-webapi-payment
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        /* -----------------------------------------------------------
+         * 4. Insert Homepage Serial
+         * ----------------------------------------------------------- */
+        stage('Insert homepage with serial') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    SERIAL_FILE="/var/lib/jenkins/workspace/Cinnamon-dev/.serial"
+
+                    if [ -f "$SERIAL_FILE" ]; then
+                        LAST=$(cat "$SERIAL_FILE" | tr -dc '0-9')
+                        NEXT=$((10#$LAST + 1))
+                    else
+                        NEXT=1
+                    fi
+
+                    SERIAL=$(printf "%03d" "$NEXT")
+                    echo "$SERIAL" > "$SERIAL_FILE"
+
+                    TARGET_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    mkdir -p "$TARGET_PATH"
+
+                    sed -i "8i\\  \\\"homepage\\\": \\\"$TARGET_PATH\\\"," package.json
+                    '''
+                }
+            }
+        }
+
+        /* -----------------------------------------------------------
+         * 5. Insert Route & Build (Cinnamon-dev)
+         * ----------------------------------------------------------- */
+        stage('Insert Route and Build') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    ROUTE_LINE='        <Route path="/index.html" element={<TopMenuPage />} />'
+                    sed -i "344a ${ROUTE_LINE}" src/mfp-app.tsx
+
+                    npm install
+                    npm run build-mfp
+                    '''
+                }
+            }
+        }
+
+        /* -----------------------------------------------------------
+         * 6. Backup Build by Serial
+         * ----------------------------------------------------------- */
+        stage('Backup build to serial folder') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | tr -dc '0-9')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    TARGET="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+
+                    mkdir -p "$TARGET"
+                    cp -r build/index.html build/lib build/locales build/static "$TARGET"
+                    '''
+                }
+            }
+        }
+
+        /* -----------------------------------------------------------
+         * 7. Upload to AWS S3
+         * ----------------------------------------------------------- */
+        stage('Upload to AWS S3') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    set -e
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | grep -o '[0-9]\\+')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+
+                    SRC_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    S3_PATH="s3://rsi-caas-mfp-dev-pub/test/hcl/$SERIAL"
+
+                    aws s3 cp "$SRC_PATH" "$S3_PATH" --recursive
+                    '''
+                }
+            }
+        }
+
+        /* -----------------------------------------------------------
+         * 8. Checkout Java Project for SonarQube Analysis
+         * ----------------------------------------------------------- */
+        stage('Checkout Java Project') {
+            steps {
+                script {
+               def encodedUser = sh(returnStdout: true, script: "echo ${AZURE_CRED_USR} | sed 's/@/%40/'").trim()
+            git branch: 'main',
+                credentialsId: 'azure-pat-varadhan',
+                url: "https://${encodedUser}:${AZURE_CRED_PSW}@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp"
+        }
+        }
+        }
+
+        /* -----------------------------------------------------------
+         * 9. Build Java Project
+         * ----------------------------------------------------------- */
+        stage('Build Java Project') {
+    steps {
+        dir('your-java-project-folder') {
+            sh 'mvn clean install'
+        }
+    }
+}
+
+        /* -----------------------------------------------------------
+         * 10. SonarQube Analysis
+         * ----------------------------------------------------------- */
+      stage('SonarQube Analysis') {
+    steps {
+        withSonarQubeEnv('SonarQube') {
+            sh 'mvn clean verify sonar:sonar'
+        }
+    }
+}
+
+        /* -----------------------------------------------------------
+         * 11. SonarQube Quality Gate
+         * ----------------------------------------------------------- */
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 2, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+    }
+}
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+pipeline {
+    agent any
+
+    environment {
+        // Azure credentials for repo cloning
+        AZURE_CRED = credentials('azure-pat-varadhan')
+
+        // AWS credentials for S3 upload
+        AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
+        AWS_DEFAULT_REGION    = 'eu-north-1'
+
+        // SonarQube config
+        SONARQUBE_ENV = 'SonarQube'
+        SONAR_PROJECT_KEY = 'my-java-project'
+        SONAR_PROJECT_NAME = 'My Java Project'
+        SONAR_PROJECT_VERSION = '1.0'
+        SONAR_AUTH_TOKEN = credentials('sonar-auth-token')
+    }
+
+    stages {
+        /* 1. Clone Cinnamon-dev Main Repo */
+        stage('Clone Cinnamon-dev') {
+            steps {
+                sh '''#!/bin/bash
+                rm -rf Cinnamon-dev
+                ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev
+                '''
+            }
+        }
+
+        /* 2. Remove Old Subdirectories */
+        stage('Clean old subdirectories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    rm -rf Cinnamon-dev-webapi-common
+                    rm -rf Cinnamon-dev-webapi-mfp
+                    rm -rf Cinnamon-dev-webapi-payment
+                    rm -rf Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        /* 3. Clone Sub Repositories */
+        stage('Clone Sub Repositories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-mfp
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-payment Cinnamon-dev-webapi-payment
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        /* 4. Insert Homepage Serial */
+        stage('Insert homepage with serial') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    SERIAL_FILE="/var/lib/jenkins/workspace/Cinnamon-dev/.serial"
+
+                    if [ -f "$SERIAL_FILE" ]; then
+                        LAST=$(cat "$SERIAL_FILE" | tr -dc '0-9')
+                        NEXT=$((10#$LAST + 1))   # Force decimal to avoid octal error
+                    else
+                        NEXT=1
+                    fi
+
+                    SERIAL=$(printf "%03d" "$NEXT")
+                    echo "$SERIAL" > "$SERIAL_FILE"
+
+                    TARGET_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    mkdir -p "$TARGET_PATH"
+
+                    sed -i "8i\\  \\\"homepage\\\": \\\"$TARGET_PATH\\\"," package.json
+                    '''
+                }
+            }
+        }
+
+        /* 5. Insert Route & Build (Cinnamon-dev) */
+        stage('Insert Route and Build') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    ROUTE_LINE='        <Route path="/index.html" element={<TopMenuPage />} />'
+                    sed -i "344a ${ROUTE_LINE}" src/mfp-app.tsx
+
+                    npm install
+                    npm run build-mfp
+                    '''
+                }
+            }
+        }
+
+        /* 6. Backup Build by Serial */
+        stage('Backup build to serial folder') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | tr -dc '0-9')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    TARGET="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+
+                    mkdir -p "$TARGET"
+                    cp -r build/index.html build/lib build/locales build/static "$TARGET"
+                    '''
+                }
+            }
+        }
+
+        /* 7. Upload to AWS S3 */
+        stage('Upload to AWS S3') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    set -e
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | grep -o '[0-9]\\+')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+
+                    SRC_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    S3_PATH="s3://rsi-caas-mfp-dev-pub/test/hcl/$SERIAL"
+
+                    aws s3 cp "$SRC_PATH" "$S3_PATH" --recursive
+                    '''
+                }
+            }
+        }
+
+        /* 8. Checkout Java Project */
+        stage('Checkout Java Project') {
+            steps {
+                script {
+                    def encodedUser = sh(returnStdout: true, script: "echo ${AZURE_CRED_USR} | sed 's/@/%40/'").trim()
+                    git branch: 'main',
+                        credentialsId: 'azure-pat-varadhan',
+                        url: "https://${encodedUser}:${AZURE_CRED_PSW}@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp"
+                }
+            }
+        }
+
+        /* 9. Build Java Project */
+        stage('Build Java Project') {
+            steps {
+                dir('your-java-project-folder') {
+                    sh 'mvn clean install'
+                }
+            }
+        }
+
+        /* 10. SonarQube Analysis */
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv("${SONARQUBE_ENV}") {
+                    dir('your-java-project-folder') {
+                        sh """
+                        mvn clean verify sonar:sonar \
+                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                            -Dsonar.projectName='${SONAR_PROJECT_NAME}' \
+                            -Dsonar.projectVersion=${SONAR_PROJECT_VERSION} \
+                            -Dsonar.login=${SONAR_AUTH_TOKEN}
+                        """
+                    }
+                }
+            }
+        }
+
+        /* 11. SonarQube Quality Gate */
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+    }
+}
+--------------------------------------------------------------------------
+pipeline {
+    agent any
+
+    environment {
+        // Credentials from Jenkins
+        AZURE_CRED = credentials('azure-pat-varadhan')
+        AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
+        AWS_DEFAULT_REGION    = 'eu-north-1'
+        SONARQUBE_ENV         = 'SonarQube'
+        SONAR_PROJECT_KEY     = 'my-java-project'
+        SONAR_PROJECT_NAME    = 'My Java Project'
+        SONAR_PROJECT_VERSION = '1.0'
+        SONAR_AUTH_TOKEN      = credentials('sonar-auth-token')
+
+        // ? Change to your real Java repo HTTPS URL from Azure DevOps
+        JAVA_REPO_URL = 'https://dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp'
+    }
+
+    stages {
+
+        /* 1. Clone Cinnamon-dev */
+        stage('Clone Cinnamon-dev') {
+            steps {
+                sh '''#!/bin/bash
+                set -e
+                rm -rf Cinnamon-dev
+                ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                git clone "https://${ENCODED_USER}:${AZURE_CRED_PSW}@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev"
+                '''
+            }
+        }
+
+        /* 2. Remove Old Subdirectories */
+        stage('Clean old subdirectories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh 'rm -rf Cinnamon-dev-webapi-common Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-payment Cinnamon-dev-webapp'
+                }
+            }
+        }
+
+        /* 3. Clone Sub Repositories */
+        stage('Clone Sub Repositories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    set -e
+                    ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                    git clone "https://${ENCODED_USER}:${AZURE_CRED_PSW}@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common" Cinnamon-dev-webapi-common
+                    git clone "https://${ENCODED_USER}:${AZURE_CRED_PSW}@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-mfp" Cinnamon-dev-webapi-mfp
+                    git clone "https://${ENCODED_USER}:${AZURE_CRED_PSW}@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-payment" Cinnamon-dev-webapi-payment
+                    git clone "https://${ENCODED_USER}:${AZURE_CRED_PSW}@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp" Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        /* 4. Insert homepage with serial */
+        stage('Insert homepage with serial') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    set -e
+                    SERIAL_FILE="${WORKSPACE}/.serial"
+                    if [ -f "$SERIAL_FILE" ]; then
+                        LAST=$(cat "$SERIAL_FILE" | tr -dc '0-9')
+                        LAST=$(echo "$LAST" | sed 's/^0*//')
+                        [ -z "$LAST" ] && LAST=0
+                        NEXT=$((LAST + 1))
+                    else
+                        NEXT=1
+                    fi
+                    SERIAL=$(printf "%03d" "$NEXT")
+                    echo "$SERIAL" > "$SERIAL_FILE"
+                    TARGET_PATH="${WORKSPACE}/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    mkdir -p "$TARGET_PATH"
+                    sed -i "8i\\  \\\"homepage\\\": \\\"$TARGET_PATH\\\"," package.json
+                    '''
+                }
+            }
+        }
+
+        /* 5. Insert Route and Build */
+        stage('Insert Route and Build') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    set -e
+                    ROUTE_LINE='        <Route path="/index.html" element={<TopMenuPage />} />'
+                    sed -i "344a ${ROUTE_LINE}" src/mfp-app.tsx
+                    npm install
+                    npm run build-mfp
+                    '''
+                }
+            }
+        }
+
+        /* 6. Backup build */
+        stage('Backup build to serial folder') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    set -e
+                    SERIAL=$(cat ${WORKSPACE}/.serial | tr -dc '0-9')
+                    SERIAL=$(echo "$SERIAL" | sed 's/^0*//')
+                    [ -z "$SERIAL" ] && SERIAL=0
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    TARGET="${WORKSPACE}/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    mkdir -p "$TARGET"
+                    cp -r build/index.html build/lib build/locales build/static "$TARGET"
+                    '''
+                }
+            }
+        }
+
+        /* 7. Upload to AWS S3 */
+        stage('Upload to AWS S3') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    set -e
+                    SERIAL=$(cat ${WORKSPACE}/.serial | tr -dc '0-9')
+                    SERIAL=$(echo "$SERIAL" | sed 's/^0*//')
+                    [ -z "$SERIAL" ] && SERIAL=0
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    SRC_PATH="${WORKSPACE}/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    S3_PATH="s3://rsi-caas-mfp-dev-pub/test/hcl/$SERIAL"
+                    aws s3 cp "$SRC_PATH" "$S3_PATH" --recursive
+                    '''
+                }
+            }
+        }
+
+        /* 8. Checkout Java Project */
+        stage('Checkout Java Project') {
+    steps {
+        git branch: 'main',
+            url: 'https://dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp',
+            credentialsId: 'azure-pat-varadhan'
+    }
+}
+        /* 9. Build Java Project */
+        stage('Build Java Project') {
+            steps {
+                sh 'ls -l'
+                sh 'mvn clean install'
+            }
+        }
+
+        /* 10. SonarQube Analysis */
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv("${SONARQUBE_ENV}") {
+                    sh """
+                    mvn clean verify sonar:sonar \
+                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                        -Dsonar.projectName='${SONAR_PROJECT_NAME}' \
+                        -Dsonar.projectVersion=${SONAR_PROJECT_VERSION} \
+                        -Dsonar.login=${SONAR_AUTH_TOKEN}
+                    """
+                }
+            }
+        }
+
+        /* 11. Quality Gate */
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            emailext(
+                to: 'varadhan.l@hcltech.com',
+                subject: "SUCCESS: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+                body: """<p>Build succeeded!</p>
+                         <p>Job: ${env.JOB_NAME}</p>
+                         <p>Build Number: ${env.BUILD_NUMBER}</p>
+                         <p>Details: <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>""",
+                mimeType: 'text/html'
+            )
+        }
+        failure {
+            emailext(
+                to: 'varadhan.l@hcltech.com',
+                subject: "FAILURE: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+                body: """<p>Build failed!</p>
+                         <p>Job: ${env.JOB_NAME}</p>
+                         <p>Build Number: ${env.BUILD_NUMBER}</p>
+                         <p>Details: <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>""",
+                mimeType: 'text/html'
+            )
+        }
+        always {
+            echo "Email notification sent."
+        }
+    }
+}
+-----------------------------------------------------------------------------------------------------------
+Working script for all combination
+
+-----------------------> Ok its working 
+
+pipeline {
+    agent any
+
+    environment {
+        // Azure credentials for repo cloning
+        AZURE_CRED = credentials('azure-pat-varadhan')
+
+        // AWS credentials for S3 upload
+        AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
+        AWS_DEFAULT_REGION    = 'eu-north-1'
+
+        // SonarQube config
+        SONARQUBE_ENV = 'SonarQube'
+        SONAR_PROJECT_KEY = 'my-java-project'
+        SONAR_PROJECT_NAME = 'My Java Project'
+        SONAR_PROJECT_VERSION = '1.0'
+        SONAR_AUTH_TOKEN = credentials('sonar-auth-token')
+    }
+
+    stages {
+        /* 1. Clone Cinnamon-dev Main Repo */
+        stage('Clone Cinnamon-dev') {
+            steps {
+                sh '''#!/bin/bash
+                rm -rf Cinnamon-dev
+                ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev
+                '''
+            }
+        }
+
+        /* 2. Remove Old Subdirectories */
+        stage('Clean old subdirectories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    rm -rf Cinnamon-dev-webapi-common
+                    rm -rf Cinnamon-dev-webapi-mfp
+                    rm -rf Cinnamon-dev-webapi-payment
+                    rm -rf Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        /* 3. Clone Sub Repositories */
+        stage('Clone Sub Repositories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-mfp
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-payment Cinnamon-dev-webapi-payment
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        /* 4. Insert Homepage Serial */
+        stage('Insert homepage with serial') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    SERIAL_FILE="/var/lib/jenkins/workspace/Cinnamon-dev/.serial"
+
+                    if [ -f "$SERIAL_FILE" ]; then
+                        LAST=$(cat "$SERIAL_FILE" | tr -dc '0-9')
+                        NEXT=$((10#$LAST + 1))   # Force decimal to avoid octal error
+                    else
+                        NEXT=1
+                    fi
+
+                    SERIAL=$(printf "%03d" "$NEXT")
+                    echo "$SERIAL" > "$SERIAL_FILE"
+
+                    TARGET_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    mkdir -p "$TARGET_PATH"
+
+                    sed -i "8i\\  \\\"homepage\\\": \\\"$TARGET_PATH\\\"," package.json
+                    '''
+                }
+            }
+        }
+
+        /* 5. Insert Route & Build (Cinnamon-dev) */
+        stage('Insert Route and Build') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    ROUTE_LINE='        <Route path="/index.html" element={<TopMenuPage />} />'
+                    sed -i "344a ${ROUTE_LINE}" src/mfp-app.tsx
+
+                    npm install
+                    npm run build-mfp
+                    '''
+                }
+            }
+        }
+
+        /* 6. Backup Build by Serial */
+        stage('Backup build to serial folder') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | tr -dc '0-9')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    TARGET="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+
+                    mkdir -p "$TARGET"
+                    cp -r build/index.html build/lib build/locales build/static "$TARGET"
+                    '''
+                }
+            }
+        }
+
+        /* 7. Upload to AWS S3 */
+        stage('Upload to AWS S3') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    set -e
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | grep -o '[0-9]\\+')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+
+                    SRC_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    S3_PATH="s3://rsi-caas-mfp-dev-pub/test/hcl/$SERIAL"
+
+                    aws s3 cp "$SRC_PATH" "$S3_PATH" --recursive
+                    '''
+                }
+            }
+        }
+
+        /* 8. Checkout Java Project */
+        stage('Checkout Java Project') {
+            steps {
+                script {
+                    def encodedUser = sh(returnStdout: true, script: "echo ${AZURE_CRED_USR} | sed 's/@/%40/'").trim()
+                    git branch: 'main',
+                        credentialsId: 'azure-pat-varadhan',
+                        url: "https://${encodedUser}:${AZURE_CRED_PSW}@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp"
+                }
+            }
+        }
+
+        /* 9. Build Java Project */
+        stage('Build Java Project') {
+            steps {
+                dir('your-java-project-folder') {
+                    sh 'mvn clean install'
+                }
+            }
+        }
+
+        /* 10. SonarQube Analysis */
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv("${SONARQUBE_ENV}") {
+                    dir('your-java-project-folder') {
+                        sh """
+                        mvn clean verify sonar:sonar \
+                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                            -Dsonar.projectName='${SONAR_PROJECT_NAME}' \
+                            -Dsonar.projectVersion=${SONAR_PROJECT_VERSION} \
+                            -Dsonar.login=${SONAR_AUTH_TOKEN}
+                        """
+                    }
+                }
+            }
+        }
+
+        /* 11. SonarQube Quality Gate */
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+    }
+}
+---------------------------------------------------------------------------------Ok Its Working script file
+
+jrsd pdiw dgoy owwy -------------------Gmail App Key
+-----------------------------------------------------------------------------------Not working
+pipeline {
+    agent any
+
+    environment {
+        // Azure credentials for repo cloning
+        AZURE_CRED = credentials('azure-pat-varadhan')
+
+        // AWS credentials for S3 upload
+        AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
+        AWS_DEFAULT_REGION    = 'eu-north-1'
+
+        // SonarQube config
+        SONARQUBE_ENV = 'SonarQube'
+        SONAR_PROJECT_KEY = 'my-java-project'
+        SONAR_PROJECT_NAME = 'My Java Project'
+        SONAR_PROJECT_VERSION = '1.0'
+        SONAR_AUTH_TOKEN = credentials('sonar-auth-token')
+    }
+
+    stages {
+        /* 1. Clone Cinnamon-dev Main Repo */
+        stage('Clone Cinnamon-dev') {
+            steps {
+                sh '''#!/bin/bash
+                rm -rf Cinnamon-dev
+                rm -rf Cinnamon-dev@tmp
+                ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev
+                '''
+            }
+        }
+
+        /* 2. Remove Old Subdirectories */
+        stage('Clean old subdirectories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    rm -rf Cinnamon-dev-webapi-common
+                    rm -rf Cinnamon-dev-webapi-mfp
+                    rm -rf Cinnamon-dev-webapi-payment
+                    rm -rf Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        /* 3. Clone Sub Repositories */
+        stage('Clone Sub Repositories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-mfp
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-payment Cinnamon-dev-webapi-payment
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        /* 4. Insert Homepage Serial */
+        stage('Insert homepage with serial') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    SERIAL_FILE="/var/lib/jenkins/workspace/Cinnamon-dev/.serial"
+
+                    if [ -f "$SERIAL_FILE" ]; then
+                        LAST=$(cat "$SERIAL_FILE" | tr -dc '0-9')
+                        NEXT=$((10#$LAST + 1))   # Force decimal to avoid octal error
+                    else
+                        NEXT=1
+                    fi
+
+                    SERIAL=$(printf "%03d" "$NEXT")
+                    echo "$SERIAL" > "$SERIAL_FILE"
+
+                    TARGET_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    mkdir -p "$TARGET_PATH"
+
+                    sed -i "8i\\  \\\"homepage\\\": \\\"$TARGET_PATH\\\"," package.json
+                    '''
+                }
+            }
+        }
+
+        /* 5. Insert Route & Build (Cinnamon-dev) */
+        stage('Insert Route and Build') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    ROUTE_LINE='        <Route path="/index.html" element={<TopMenuPage />} />'
+                    sed -i "344a ${ROUTE_LINE}" src/mfp-app.tsx
+
+                    npm install
+                    npm run build-mfp
+                    '''
+                }
+            }
+        }
+
+        /* 6. Backup Build by Serial */
+        stage('Backup build to serial folder') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | tr -dc '0-9')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    TARGET="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+
+                    mkdir -p "$TARGET"
+                    cp -r build/index.html build/lib build/locales build/static "$TARGET"
+                    '''
+                }
+            }
+        }
+
+        /* 7. Upload to AWS S3 */
+        stage('Upload to AWS S3') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    set -e
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | grep -o '[0-9]\\+')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+
+                    SRC_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    S3_PATH="s3://rsi-caas-mfp-dev-pub/test/hcl/$SERIAL"
+
+                    aws s3 cp "$SRC_PATH" "$S3_PATH" --recursive
+                    '''
+                }
+            }
+        }
+
+        /* 8. Checkout Java Project */
+        stage('Checkout Java Project') {
+            steps {
+                script {
+                    def encodedUser = sh(returnStdout: true, script: "echo ${AZURE_CRED_USR} | sed 's/@/%40/'").trim()
+                    git branch: 'main',
+                        credentialsId: 'azure-pat-varadhan',
+                        url: "https://${encodedUser}:${AZURE_CRED_PSW}@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp"
+                }
+            }
+        }
+
+        /* 9. Build Java Project */
+        stage('Build Java Project') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh 'mvn clean install'
+                }
+            }
+        }
+
+        /* 10. SonarQube Analysis */
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv("${SONARQUBE_ENV}") {
+                    dir('your-java-project-folder') {
+                        sh """
+                        mvn clean verify sonar:sonar \
+                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                            -Dsonar.projectName='${SONAR_PROJECT_NAME}' \
+                            -Dsonar.projectVersion=${SONAR_PROJECT_VERSION} \
+                            -Dsonar.login=${SONAR_AUTH_TOKEN}
+                        """
+                    }
+                }
+            }
+        }
+
+        /* 11. SonarQube Quality Gate */
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+    }
+    post {
+    success {
+        emailext(
+            to: 'varadhan887@gmail.com',
+            subject: "SUCCESS: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+            body: "Build succeeded!",
+            mimeType: 'text/html'
+        )
+    }
+    failure {
+        emailext(
+            to: 'varadhan887@gmail.com',
+            subject: "FAILURE: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+            body: "Build failed!",
+            mimeType: 'text/html'
+        )
+    }
+    always {
+        echo "Post block executed."
+    }
+}
+
+}
+
+
+11984a01d2d9dd570768cb892a3b237017 - jenkins api Token
+
+
+--------------------------------------------working good
+
+pipeline {
+    agent any
+
+    environment {
+        AZURE_CRED = credentials('azure-pat-varadhan')
+    }
+
+    stages {
+        stage('Clone Cinnamon-dev') {
+            steps {
+                sh '''#!/bin/bash
+                rm -rf Cinnamon-dev
+                rm -rf Cinnamon-dev@tmp
+                ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev
+                '''
+            }
+        }
+
+        stage('Clean old subdirectories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    rm -rf Cinnamon-dev-webapi-common
+                    rm -rf Cinnamon-dev-webapi-mfp
+                    rm -rf Cinnamon-dev-webapi-payment
+                    rm -rf Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Clone Sub Repositories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-mfp
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-payment Cinnamon-dev-webapi-payment
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Insert homepage with serial') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "🔢 Checking and incrementing serial..."
+
+                    SERIAL_FILE="/var/lib/jenkins/workspace/Cinnamon-dev/.serial"
+
+                    if [ -f "$SERIAL_FILE" ]; then
+                        LAST=$(cat "$SERIAL_FILE" | tr -dc '0-9')
+                        NEXT=$((10#$LAST + 1))
+                    else
+                        NEXT=1
+                    fi
+
+                    SERIAL=$(printf "%03d" "$NEXT")
+                    echo "$SERIAL" > "$SERIAL_FILE"
+
+                    TARGET_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    mkdir -p "$TARGET_PATH"
+
+                    echo "📦 Inserting homepage path: $TARGET_PATH"
+                    sed -i "8i\\  \\\"homepage\\\": \\\"$TARGET_PATH\\\"," package.json
+                    '''
+                }
+            }
+        }
+
+        stage('Insert Route and Build') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "✏️ Inserting <Route> in mfp-app.tsx..."
+                    ROUTE_LINE='        <Route path="/index.html" element={<TopMenuPage />} />'
+                    sed -i "344a ${ROUTE_LINE}" src/mfp-app.tsx
+
+                    echo "🔧 Running npm install and build..."
+                    npm install
+                    npm run build-mfp
+                    '''
+                }
+            }
+        }
+
+        stage('Backup build to serial folder') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "🗄️ Backing up build to serial folder..."
+
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | tr -dc '0-9')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    TARGET="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+
+                    echo "📁 Creating target folder: $TARGET"
+                    mkdir -p "$TARGET"
+
+                    echo "📥 Copying files to: $TARGET"
+                    cp -r build/index.html build/lib build/locales build/static "$TARGET"
+                    '''
+                }
+            }
+        }
+
+        stage('Upload to AWS S3') {
+            environment {
+                AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
+                AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
+                AWS_DEFAULT_REGION    = 'eu-north-1'
+            }
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    set -e
+                    echo "☁️ Uploading build to S3..."
+
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | grep -o '[0-9]\\+')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    SRC_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    S3_PATH="s3://rsi-caas-mfp-dev-pub/test/hcl/$SERIAL"
+
+                    echo "📁 Uploading content of: $SRC_PATH"
+                    ls -l "$SRC_PATH"
+
+                    aws s3 cp "$SRC_PATH" "$S3_PATH" --recursive
+                    echo "✅ Upload completed to: $S3_PATH"
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            emailext(
+                to: 'varadhan887@gmail.com',
+                subject: "SUCCESS: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+                body: "Build succeeded!",
+                mimeType: 'text/html'
+            )
+        }
+        failure {
+            emailext(
+                to: 'varadhan887@gmail.com',
+                subject: "FAILURE: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+                body: "Build failed!",
+                mimeType: 'text/html'
+            )
+        }
+        always {
+            echo "Post block executed."
+        }
+    }
+}
+------------------------------------------>
+pipeline {
+    agent any
+
+    tools {
+        nodejs 'Node 18' // Node.js version from Jenkins Global Tool Configuration
+    }
+
+    environment {
+        SONARQUBE = 'SonarQube'          // SonarQube server name in Jenkins
+        SCANNER   = 'SonarScanner'      // SonarQube scanner installation name in Jenkins
+        AZURE_CRED = credentials('azure-pat-varadhan')
+    }
+
+    stages {
+
+        stage('Clone Cinnamon-dev') {
+            steps {
+                sh '''
+                    rm -rf Cinnamon-dev
+                rm -rf Cinnamon-dev@tmp
+                ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev
+                '''
+            }
+        }
+
+        stage('Clean old subdirectories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''
+                        rm -rf Cinnamon-dev-webapi-common \
+                               Cinnamon-dev-webapi-mfp \
+                               Cinnamon-dev-webapi-payment \
+                               Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Clone Sub Repositories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''
+                        ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-mfp
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-payment Cinnamon-dev-webapi-payment
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Insert homepage with serial') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''
+                       SERIAL_FILE=/var/lib/jenkins/workspace/Cinnamon-dev/.serial
+
+if [ -f "$SERIAL_FILE" ]; then
+    LAST=$(cat "$SERIAL_FILE" | tr -dc 0-9)
+else
+    LAST="0"
+fi
+
+# convert to decimal by adding 0
+LAST=$((LAST + 0))
+NEXT=$((LAST + 1))
+
+# zero-pad to 3 digits
+NEXT=$(printf "%03d" "$NEXT")
+
+echo "$NEXT" > "$SERIAL_FILE"
+echo "Next serial: $NEXT"
+
+TARGET_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$NEXT"
+mkdir -p "$TARGET_PATH"
+jq --arg hp "$TARGET_PATH" '.homepage = $hp' package.json > package.tmp.json
+mv package.tmp.json package.json
+                    '''
+                }
+            }
+        }
+
+        stage('Insert Route and Build') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''
+                        sed -i "344a         <Route path=\\"/index.html\\" element={<TopMenuPage />} />" src/mfp-app.tsx
+                        npm install
+                        npm run build-mfp
+                    '''
+                }
+            }
+        }
+
+stage('SonarQube Analysis') {
+    steps {
+        script {
+            // Get the path of sonar-scanner tool installed in Jenkins (Manage Jenkins → Global Tool Configuration)
+            def scannerHome = tool name: 'sonar-scanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+
+            dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                withSonarQubeEnv('SonarQube') {
+                    sh """
+                        ${scannerHome}/bin/sonar-scanner \
+                        -Dsonar.projectKey=Cinnamon-dev-webapp \
+                        -Dsonar.sources=. \
+                        -Dsonar.host.url=http://192.168.54.172:9000 \
+                        -Dsonar.token=${SONAR_AUTH_TOKEN}
+                    """
+                }
+            }
+        }
+    }
+}
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Backup build to serial folder') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''
+                        SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | tr -dc '0-9')
+                        SERIAL=$(printf "%03d" "$SERIAL")
+                        TARGET="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                        mkdir -p "$TARGET"
+                        cp -r build/index.html build/lib build/locales build/static "$TARGET"
+                    '''
+                }
+            }
+        }
+
+        stage('Upload to AWS S3') {
+            environment {
+                AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
+                AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
+                AWS_DEFAULT_REGION    = 'eu-north-1'
+            }
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''
+                        SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | grep -o '[0-9]\\+')
+                        SERIAL=$(printf "%03d" "$SERIAL")
+                        SRC_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                        S3_PATH="s3://rsi-caas-mfp-dev-pub/test/hcl/$SERIAL"
+                        aws s3 cp "$SRC_PATH" "$S3_PATH" --recursive
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            emailext(
+                to: 'varadhan887@gmail.com',
+                subject: "SUCCESS: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+                body: "Build succeeded!",
+                mimeType: 'text/html'
+            )
+        }
+        failure {
+            emailext(
+                to: 'varadhan887@gmail.com',
+                subject: "FAILURE: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+                body: "Build failed!",
+                mimeType: 'text/html'
+            )
+        }
+    }
+}
+
+
+
+
+-------------------------------------ok good
+
+pipeline {
+    agent any
+
+    environment {
+        AZURE_CRED = credentials('azure-pat-varadhan')
+    }
+
+    stages {
+        stage('Clone Cinnamon-dev') {
+            steps {
+                sh '''#!/bin/bash
+                rm -rf Cinnamon-dev
+                ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev
+                '''
+            }
+        }
+
+        stage('Clean old subdirectories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    rm -rf Cinnamon-dev-webapi-common
+                    rm -rf Cinnamon-dev-webapi-mfp
+                    rm -rf Cinnamon-dev-webapi-payment
+                    rm -rf Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Clone Sub Repositories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-mfp
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-payment Cinnamon-dev-webapi-payment
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+
+        stage('Insert homepage with serial') {
+    steps {
+        dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+            sh '''#!/bin/bash
+            echo "🔢 Checking and incrementing serial..."
+
+            SERIAL_FILE="$WORKSPACE/.serial"
+
+            if [ -f "$SERIAL_FILE" ]; then
+                LAST=$(cat "$SERIAL_FILE" | tr -dc '0-9')
+                NEXT=$((10#$LAST + 1))
+            else
+                NEXT=1
+            fi
+
+            SERIAL=$(printf "%03d" "$NEXT")
+            echo "$SERIAL" > "$SERIAL_FILE"
+
+            # Only the relative path for package.json
+            HOMEPAGE_PATH="/test/hcl/cinnamon/varadhan/$SERIAL"
+
+            echo "📦 Inserting homepage path: $HOMEPAGE_PATH"
+            
+            # Remove old homepage line if exists
+            sed -i '/"homepage":/d' package.json
+
+            # Insert new homepage line at line 8
+            sed -i "8i\\  \\\"homepage\\\": \\\"$HOMEPAGE_PATH\\\"," package.json
+            '''
+        }
+    }
+}
+        stage('Insert Route and Build') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "✏️ Inserting <Route> in mfp-app.tsx..."
+                    ROUTE_LINE='        <Route path="/index.html" element={<TopMenuPage />} />'
+                    sed -i "344a ${ROUTE_LINE}" src/mfp-app.tsx
+
+                    echo "🔧 Running npm install and build..."
+                    npm install --save-dev typescript
+                    npm run build-mfp
+                    npm run build-mfp
+                    '''
+                }
+            }
+        }
+
+        stage('Backup build to serial folder') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "🗄️ Backing up build to serial folder..."
+
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | tr -dc '0-9')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    TARGET="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+
+                    echo "📁 Creating target folder: $TARGET"
+                    mkdir -p "$TARGET"
+
+                    echo "📥 Copying files to: $TARGET"
+                    cp -r build/index.html build/lib build/locales build/static "$TARGET"
+                    '''
+                }
+            }
+        }
+
+        stage('Upload to AWS S3') {
+            environment {
+                AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
+                AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
+                AWS_DEFAULT_REGION    = 'ap-northeast-1'
+            }
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    set -e
+                    echo "☁️ Uploading build to S3..."
+
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | grep -o '[0-9]\\+')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    SRC_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    S3_PATH="s3://rsi-caas-mfp-dev-public/test/hcl/cinnamon/varadhan/$SERIAL"
+
+                    echo "📁 Uploading content of: $SRC_PATH"
+                    ls -l "$SRC_PATH"
+
+                    aws s3 cp "$SRC_PATH" "$S3_PATH" --recursive
+                    echo "✅ Upload completed to: $S3_PATH"
+                    '''
+                }
+            }
+        }
+    }
+}
+
+----------------------------------------------
+
+stage('Insert homepage with serial') {
+    steps {
+        dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+            sh '''#!/bin/bash
+            echo "🔢 Checking and incrementing serial..."
+
+            SERIAL_FILE="$WORKSPACE/.serial"
+
+            if [ -f "$SERIAL_FILE" ]; then
+                LAST=$(cat "$SERIAL_FILE" | tr -dc '0-9')
+                NEXT=$((10#$LAST + 1))
+            else
+                NEXT=1
+            fi
+
+            SERIAL=$(printf "%03d" "$NEXT")
+            echo "$SERIAL" > "$SERIAL_FILE"
+
+            # Only the relative path for package.json
+            HOMEPAGE_PATH="/test/hcl/cinnamon/varadhan/$SERIAL"
+
+            echo "📦 Inserting homepage path: $HOMEPAGE_PATH"
+            
+            # Remove old homepage line if exists
+            sed -i '/"homepage":/d' package.json
+
+            # Insert new homepage line at line 8
+            sed -i "8i\\  \\\"homepage\\\": \\\"$HOMEPAGE_PATH\\\"," package.json
+            '''
+        }
+    }
+}
+
+---------------------------------------------------------------------------->
+pipeline {
+    agent any
+ 
+    environment {
+        AZURE_CRED = credentials('azure-pat-varadhan')
+    }
+ 
+    stages {
+        stage('Clone Cinnamon-dev') {
+            steps {
+                sh '''#!/bin/bash
+                rm -rf Cinnamon-dev
+                ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev
+                '''
+            }
+        }
+ 
+        stage('Clean old subdirectories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    rm -rf Cinnamon-dev-webapi-common
+                    rm -rf Cinnamon-dev-webapi-mfp
+                    rm -rf Cinnamon-dev-webapi-payment
+                    rm -rf Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+ 
+        stage('Clone Sub Repositories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-mfp
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-payment Cinnamon-dev-webapi-payment
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+ 
+        stage('Insert homepage with serial') {
+    steps {
+        dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+            sh '''#!/bin/bash
+            echo "🔢 Checking and incrementing serial (1–10 loop)..."
+ 
+            SERIAL_FILE="$WORKSPACE/.serial"
+ 
+            if [ -f "$SERIAL_FILE" ]; then
+                LAST=$(cat "$SERIAL_FILE" | tr -dc '0-9')
+                # Force base 10 and wrap around at 10
+                NEXT=$((10#$LAST + 1))
+                if [ "$NEXT" -gt 10 ]; then
+                    NEXT=1
+                fi
+            else
+                NEXT=1
+            fi
+ 
+            SERIAL=$(printf "%03d" "$NEXT")
+            echo "$SERIAL" > "$SERIAL_FILE"
+ 
+            # Homepage path for package.json
+            HOMEPAGE_PATH="/test/hcl/cinnamon/varadhan/$SERIAL"
+ 
+            echo "📦 Inserting homepage path: $HOMEPAGE_PATH"
+ 
+            # Remove old homepage line if exists
+            sed -i '/"homepage":/d' package.json
+ 
+            # Insert new homepage line at line 8
+            sed -i "8i\\  \\\"homepage\\\": \\\"$HOMEPAGE_PATH\\\"," package.json
+            '''
+        }
+    }
+}
+        stage('Insert Route and Build') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "✏️ Inserting <Route> in mfp-app.tsx..."
+                    ROUTE_LINE='        <Route path="/index.html" element={<TopMenuPage />} />'
+                    sed -i "344a ${ROUTE_LINE}" src/mfp-app.tsx
+ 
+                    echo "🔧 Running npm install and build..."
+                    npm install --save-dev typescript
+                    npm run build-mfp
+                    npm run build-mfp
+                    '''
+                }
+            }
+        }
+ 
+        stage('Backup build to serial folder') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "🗄️ Backing up build to serial folder..."
+ 
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | tr -dc '0-9')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    TARGET="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+ 
+                    echo "📁 Creating target folder: $TARGET"
+                    mkdir -p "$TARGET"
+ 
+                    echo "📥 Copying files to: $TARGET"
+                    cp -r build/index.html build/lib build/locales build/static "$TARGET"
+                    '''
+                }
+            }
+        }
+ 
+        stage('Upload to AWS S3') {
+            environment {
+                AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
+                AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
+                AWS_DEFAULT_REGION    = 'ap-northeast-1'
+            }
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    set -e
+                    echo "☁️ Uploading build to S3..."
+ 
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | grep -o '[0-9]\\+')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    SRC_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    S3_PATH="s3://rsi-caas-mfp-dev-public/test/hcl/cinnamon/varadhan/$SERIAL"
+ 
+                    echo "📁 Uploading content of: $SRC_PATH"
+                    ls -l "$SRC_PATH"
+ 
+                    aws s3 cp "$SRC_PATH" "$S3_PATH" --recursive
+                    echo "✅ Upload completed to: $S3_PATH"
+                    '''
+                }
+            }
+        }
+ }
+
+stage('Publish URL') {
+            steps {
+                sh '''#!/bin/bash
+                set -e
+                SERIAL=$(cat "$WORKSPACE/.serial" | tr -dc '0-9')
+                SERIAL=$(printf "%03d" "$SERIAL")
+                URL="https://rsi-caas-mfp-dev-public.s3.ap-northeast-1.amazonaws.com/test/hcl/cinnamon/varadhan/$SERIAL/index.html"
+                echo "MLP_URL=$URL"
+                echo "$URL" > "$WORKSPACE/mlp_url.txt"
+                '''
+                archiveArtifacts artifacts: 'mlp_url.txt', fingerprint: true
+            }
+        }
+
+        stage('Functional Test (Playwright)') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    set -e
+                    source /var/lib/jenkins/playwright-venv/bin/activate
+                    pytest -q /home/administrator/tests/test_http.py /home/administrator/tests/test_webapp.py
+                    deactivate
+                    '''
+                }
+            }
+        }
+
+    post {
+        success {
+            emailext(
+                to: 'varadhan887@gmail.com',
+                subject: "SUCCESS: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+                body: "Build succeeded!",
+                mimeType: 'text/html'
+            )
+        }
+        failure {
+            emailext(
+                to: 'varadhan887@gmail.com',
+                subject: "FAILURE: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+                body: "Build failed!",
+                mimeType: 'text/html'
+            )
+        }
+    }
+}
+
+-------------------------------------------------> finaly its working good--------------------> 
+
+pipeline {
+    agent any
+ 
+    environment {
+        AZURE_CRED = credentials('azure-pat-varadhan')
+    }
+ 
+    stages {
+        stage('Clone Cinnamon-dev') {
+            steps {
+                sh '''#!/bin/bash
+                rm -rf Cinnamon-dev
+                ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev
+                '''
+            }
+        }
+ 
+        stage('Clean old subdirectories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    rm -rf Cinnamon-dev-webapi-common
+                    rm -rf Cinnamon-dev-webapi-mfp
+                    rm -rf Cinnamon-dev-webapi-payment
+                    rm -rf Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+ 
+        stage('Clone Sub Repositories') {
+            steps {
+                dir('Cinnamon-dev') {
+                    sh '''#!/bin/bash
+                    ENCODED_USER=$(echo "$AZURE_CRED_USR" | sed 's/@/%40/')
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-mfp Cinnamon-dev-webapi-mfp
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-payment Cinnamon-dev-webapi-payment
+                    git clone https://$ENCODED_USER:$AZURE_CRED_PSW@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapp Cinnamon-dev-webapp
+                    '''
+                }
+            }
+        }
+ 
+        stage('Insert homepage with serial') {
+    steps {
+        dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+            sh '''#!/bin/bash
+            echo "🔢 Checking and incrementing serial (1–10 loop)..."
+ 
+            SERIAL_FILE="$WORKSPACE/.serial"
+ 
+            if [ -f "$SERIAL_FILE" ]; then
+                LAST=$(cat "$SERIAL_FILE" | tr -dc '0-9')
+                # Force base 10 and wrap around at 10
+                NEXT=$((10#$LAST + 1))
+                if [ "$NEXT" -gt 10 ]; then
+                    NEXT=1
+                fi
+            else
+                NEXT=1
+            fi
+ 
+            SERIAL=$(printf "%03d" "$NEXT")
+            echo "$SERIAL" > "$SERIAL_FILE"
+ 
+            # Homepage path for package.json
+            HOMEPAGE_PATH="/test/hcl/cinnamon/varadhan/$SERIAL"
+ 
+            echo "📦 Inserting homepage path: $HOMEPAGE_PATH"
+ 
+            # Remove old homepage line if exists
+            sed -i '/"homepage":/d' package.json
+ 
+            # Insert new homepage line at line 8
+            sed -i "8i\\  \\\"homepage\\\": \\\"$HOMEPAGE_PATH\\\"," package.json
+            '''
+        }
+    }
+}
+        stage('Insert Route and Build') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "✏️ Inserting <Route> in mfp-app.tsx..."
+                    ROUTE_LINE='        <Route path="/index.html" element={<TopMenuPage />} />'
+                    sed -i "344a ${ROUTE_LINE}" src/mfp-app.tsx
+ 
+                    echo "🔧 Running npm install and build..."
+                    npm install --save-dev typescript
+                    npm run build-mfp
+                    npm run build-mfp
+                    '''
+                }
+            }
+        }
+ 
+        stage('Backup build to serial folder') {
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    echo "🗄️ Backing up build to serial folder..."
+ 
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | tr -dc '0-9')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    TARGET="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+ 
+                    echo "📁 Creating target folder: $TARGET"
+                    mkdir -p "$TARGET"
+ 
+                    echo "📥 Copying files to: $TARGET"
+                    cp -r build/index.html build/lib build/locales build/static "$TARGET"
+                    '''
+                }
+            }
+        }
+ 
+        stage('Upload to AWS S3') {
+            environment {
+                AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
+                AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
+                AWS_DEFAULT_REGION    = 'ap-northeast-1'
+            }
+            steps {
+                dir('Cinnamon-dev/Cinnamon-dev-webapp') {
+                    sh '''#!/bin/bash
+                    set -e
+                    echo "☁️ Uploading build to S3..."
+ 
+                    SERIAL=$(cat /var/lib/jenkins/workspace/Cinnamon-dev/.serial | grep -o '[0-9]\\+')
+                    SERIAL=$(printf "%03d" "$SERIAL")
+                    SRC_PATH="/var/lib/jenkins/workspace/Cinnamon-dev/Cinnamon-dev/Cinnamon-dev-webapp/$SERIAL"
+                    S3_PATH="s3://rsi-caas-mfp-dev-public/test/hcl/cinnamon/varadhan/$SERIAL"
+ 
+                    echo "📁 Uploading content of: $SRC_PATH"
+                    ls -l "$SRC_PATH"
+ 
+                    aws s3 cp "$SRC_PATH" "$S3_PATH" --recursive
+                    echo "✅ Upload completed to: $S3_PATH"
+                    '''
+                }
+            }
+        }
+    }
+}
+
+----------------------------------------------------------------------->
