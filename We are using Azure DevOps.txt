@@ -9,6 +9,7 @@ After completing our work or patching, we generate a patch file. Since we don't 
 This is the current setup and process we follow in our environment.
 This is the current setup and process we follow in our environment
 This is the current setup and process we follow in our environment
+This is the current setup and process we follow in our environment
 
 git clone https://${AZURE_CRED_USR}:${AZURE_CRED_PSW}@dev.azure.com/fvpt/HCL/_git/Cinnamon-dev-webapi-common Cinnamon-dev-webapi-common
 
